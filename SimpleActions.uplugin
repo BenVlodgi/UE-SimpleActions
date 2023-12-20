@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "SimpleActions",
+	"Description": "Create Actions which can be configured and ran by actors in the world.",
+	"Category": "Scripting",
+	"CreatedBy": "Benjamin Blodgett",
+	"CreatedByURL": "https://benvlodgi.github.io/",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "https://github.com/BenVlodgi/SimpleActions/issues",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "SimpleActions",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen"
+		}
+	]
+}
