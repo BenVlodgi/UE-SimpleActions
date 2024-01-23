@@ -56,12 +56,12 @@ public:
 	bool bActive = false;
 
 	// The actor that which is performing this action.
-	UPROPERTY(BlueprintReadOnly, Category = "Simple Action")
-	TObjectPtr<AActor> ActingActor = nullptr;
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Simple Action")
+	TWeakObjectPtr<AActor> ActingActor = nullptr;
 	
 	// The object which triggered this action.
-	UPROPERTY(BlueprintReadOnly, Category = "Simple Action")
-	TObjectPtr<UObject> ActionInstigator = nullptr;
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Simple Action")
+	TWeakObjectPtr<UObject> ActionInstigator = nullptr;
 
 	// Called when the action is started.
 	UPROPERTY(BlueprintAssignable, Category = "Simple Action")

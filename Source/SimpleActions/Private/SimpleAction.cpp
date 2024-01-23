@@ -29,12 +29,12 @@ UWorld* USimpleAction::GetWorld() const
         return Outer->GetWorld();
     }
     
-    if(IsValid(ActingActor))
+    if(ActingActor.IsValid())
     {
 		return ActingActor->GetWorld();
 	}
 
-    if (IsValid(ActionInstigator))
+    if (ActionInstigator.IsValid())
     {
         return ActionInstigator->GetWorld();
     }
