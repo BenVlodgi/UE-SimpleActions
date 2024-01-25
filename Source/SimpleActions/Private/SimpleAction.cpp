@@ -128,8 +128,7 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
         if (bAllowDoubleStart)
         {
             // Cancel the running action before starting a new one.
-        	CancelAction();
-
+            CancelAction();
         }
         else
         {
