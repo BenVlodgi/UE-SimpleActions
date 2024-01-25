@@ -43,9 +43,11 @@ UWorld* USimpleAction::GetWorld() const
     return nullptr;
 }
 
-FString USimpleAction::GetActionUID() {
+FString USimpleAction::GetActionUID()
+{
 
-    if(ActionUID.IsEmpty()) {
+    if(ActionUID.IsEmpty())
+    {
 	    ActionUID = TEXT("" + FGuid::NewGuid().ToString());
     }
 	return ActionUID;
@@ -95,29 +97,29 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(USimpleAction::StartAction);
 
-    bool Flag_Failed = false;
+    bool bFailed = false;
     UWorld* World = GetWorld();
     if (!World)
     {
         // Only run in valid worlds.
         UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' world not valid."), *GetName());
-		Flag_Failed = true;
+		bFailed = true;
     }
 
-    if (!Flag_Failed && !bAllowInEditorPreview && World->IsPreviewWorld())
+    if (!bFailed && !bAllowInEditorPreview && World->IsPreviewWorld())
     {
 		// This Action isn't allowed to run in editor worlds.
 		UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' not allowed in Editor Preview World: %s."), *GetName(), LexToString(GetWorld()->WorldType));
-        Flag_Failed = true;
+        bFailed = true;
     }
-    if (!Flag_Failed && !bAllowInLevelEditor && World->WorldType == EWorldType::Type::Editor)
+    if (!bFailed && !bAllowInLevelEditor && World->WorldType == EWorldType::Type::Editor)
     {
         // This Action isn't allowed to run in editor worlds.
         UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' not allowed in Editor World: %s."), *GetName(), LexToString(GetWorld()->WorldType));
-        Flag_Failed = true;
+        bFailed = true;
     }
 
-    if(Flag_Failed) {
+    if(bFailed) {
 	    OnActionFailed.Broadcast(this);
     }
 
@@ -151,12 +153,14 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
 
     OnActionStarted.Broadcast(this);
 
-    if(DurationOverride > 0.f) {
+    if(DurationOverride > 0.f)
+    {
 	    const FTimerDelegate DurationOverrideDelegate = FTimerDelegate::CreateUObject(this, &USimpleAction::FinishAction, true);
         GetWorld()->GetTimerManager().SetTimer(Timer_DurationOverride, DurationOverrideDelegate, DurationOverride + StartDelay, false);
     }
 
-    if(StartDelay <= 0) {
+    if(StartDelay <= 0)
+    {
 		ActionStart(); 
     } else {
         const FTimerDelegate StartDelayDelegate = FTimerDelegate::CreateUObject(this, &USimpleAction::ActionStart);
@@ -164,10 +168,10 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
     }
 }
 
-void USimpleAction::StartAction_Bound(AActor* NewActionActor, AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionInterruptedDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed) {
+void USimpleAction::StartAction_Bound(AActor* NewActionActor, AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionCancelDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed) {
     
     OnActionStarted.AddUnique(Started);
-    OnActionInterrupted.AddUnique(Interrupted);
+    OnActionCancel.AddUnique(Interrupted);
     OnActionEnded.AddUnique(Ended);
     OnActionComplete.AddUnique(Complete);
     OnActionFailed.AddUnique(Failed);
@@ -192,7 +196,7 @@ void USimpleAction::FinishAction(bool bSuccess)
 void USimpleAction::CancelAction()
 {
 
-    OnActionInterrupted.Broadcast(this);
+    OnActionCancel.Broadcast(this);
     EndAction(false);
 }
 
@@ -226,7 +230,15 @@ void USimpleAction::EndAction(bool bSuccess)
 		ActionStop(bSuccess);
     }
 
-    if(bSuccess) { OnActionComplete.Broadcast(this); } else { OnActionFailed.Broadcast(this); }
+    if(bSuccess)
+    {
+	    OnActionComplete.Broadcast(this);
+    }
+	else
+    {
+		OnActionFailed.Broadcast(this);
+	}
+
     OnActionEnded.Broadcast(this, bSuccess);
 
     // Final cleanup

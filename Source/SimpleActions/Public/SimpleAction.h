@@ -10,13 +10,13 @@
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionStartedSignature, USimpleAction*, SimpleAction);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionInterruptedSignature, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionCancelSignature, USimpleAction*, SimpleAction);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActionEndedSignature, USimpleAction*, SimpleAction, bool, Success);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionCompleteSignature, USimpleAction*, SimpleAction);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionFailedSignature, USimpleAction*, SimpleAction);
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionStartedDelegate, USimpleAction*, SimpleAction);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionInterruptedDelegate, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionCancelDelegate, USimpleAction*, SimpleAction);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnActionEndedDelegate, USimpleAction*, SimpleAction, bool, Success);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionCompleteDelegate, USimpleAction*, SimpleAction);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionFailedDelegate, USimpleAction*, SimpleAction);
@@ -27,7 +27,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogSimpleAction, Log, All);
  * An action which can be performed by an actor.
  * CollapseCategories,
  */
-UCLASS(Blueprintable, DefaultToInstanced, EditInlineNew, Abstract, AutoExpandCategories = "Default,Simple Action", meta = (DisplayName = "Simple Action", PrioritizeCategories = "Simple Action"))
+UCLASS(Blueprintable, DefaultToInstanced, EditInlineNew, Abstract, CollapseCategories, AutoExpandCategories = "Default,Simple Action", meta = (DisplayName = "Simple Action", PrioritizeCategories = "Simple Action"))
 class SIMPLEACTIONS_API USimpleAction : public UObject, public FTickableGameObject
 {
 	GENERATED_BODY()
@@ -101,7 +101,7 @@ public:
 
 	// Called when the action in Interrupted.
 	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
-	FOnActionInterruptedSignature OnActionInterrupted;
+	FOnActionCancelSignature OnActionCancel;
 	
 	// Called when the action is Ended.
 	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
@@ -120,7 +120,7 @@ public:
 	FOnActionStartedDelegate OnActionStartedDelegate;
 
 	// Called when the action is Interrupted.
-	FOnActionInterruptedDelegate OnActionInterruptedDelegate;
+	FOnActionCancelDelegate OnActionCancelDelegate;
 
 	// Called when the action is Ended.
 	FOnActionEndedDelegate OnActionEndedDelegate;
@@ -184,7 +184,7 @@ public:
 
 	// Call to start the action with given functions to bind to related delegate broadcasts
 	UFUNCTION(BlueprintCallable, Category = "Simple Action", meta = (DefaultToSelf = "NewInstigator"))
-	void StartAction_Bound(UPARAM(DisplayName = "ActionActor") AActor* NewActionActor, UPARAM(DisplayName = "Instigator") AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionInterruptedDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed);
+	void StartAction_Bound(UPARAM(DisplayName = "ActionActor") AActor* NewActionActor, UPARAM(DisplayName = "Instigator") AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionCancelDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed);
 
 	// Call to end the action with a status of successful.
 	UFUNCTION(BlueprintCallable, Category = "Simple Action", meta = (keywords = "complete, end, stop"))
