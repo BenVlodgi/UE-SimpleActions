@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
   <a href="https://github.com/BenVlodgi/UE-SimpleActions">
-    <img src="https://github.com/BenVlodgi/UE-SimpleActions/assets/1462374/0c6ce478-49ad-4de6-b71d-a43d8bbd6759" alt="Logo" width="256" height="256">
+    <img src="https://github.com/BenVlodgi/UE-SimpleActions/assets/1462374/4c3de7df-8097-4fd2-896e-aae5a4f7d971" alt="Logo" width="640" height="320">
   </a>
 </p>
 
