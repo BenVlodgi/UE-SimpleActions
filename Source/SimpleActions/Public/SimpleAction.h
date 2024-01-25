@@ -10,23 +10,41 @@
 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionStartedSignature, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionCancelSignature, USimpleAction*, SimpleAction);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActionEndedSignature, USimpleAction*, SimpleAction, bool, Success);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionCompleteSignature, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActionFailedSignature, USimpleAction*, SimpleAction);
+
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionStartedDelegate, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionCancelDelegate, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnActionEndedDelegate, USimpleAction*, SimpleAction, bool, Success);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionCompleteDelegate, USimpleAction*, SimpleAction);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnActionFailedDelegate, USimpleAction*, SimpleAction);
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSimpleAction, Log, All);
 
 /**
  * An action which can be performed by an actor.
+ * CollapseCategories,
  */
 UCLASS(Blueprintable, DefaultToInstanced, EditInlineNew, Abstract, CollapseCategories, AutoExpandCategories = "Default,Simple Action", meta = (DisplayName = "Simple Action", PrioritizeCategories = "Simple Action"))
 class SIMPLEACTIONS_API USimpleAction : public UObject, public FTickableGameObject
 {
 	GENERATED_BODY()
-	
+
+private:
+	UPROPERTY()
+	FString ActionUID;
+
 public:
 	// When true: If this action is called to start while it is already active, it will start again.
 	// When false: Additional calls to start while the action is active will be ignored.
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Simple Action")
 	bool bAllowDoubleStart = true;
+
+	// When true: If the actions is called to start while already running it will call ActionStop.
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Simple Action")
+	bool bStopWhenActiveStarted = true;
 
 	// True if this actor ticks while active.
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Simple Action")
@@ -37,7 +55,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Simple Action", meta = (EditCondition = "bCanTick"))
 	bool bAutoEnableTickWhileActive = false;
 
-	// When true: This action can run in editor whild the game isn't running.
+	// When true: This action can run in editor while the game isn't running.
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Simple Action")
 	bool bAllowInLevelEditor = false;
 
@@ -50,6 +68,12 @@ protected:
 	UPROPERTY()
 	bool bTickManuallyEnabled = false;
 
+	// Timer Handle for Action Start Delay
+	FTimerHandle Timer_StartDelay;
+
+	// Timer Handle for Action Duration override
+	FTimerHandle Timer_DurationOverride;
+
 public:
 	// True once the action starts, and false once it ends.
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Simple Action")
@@ -60,16 +84,52 @@ public:
 	TWeakObjectPtr<AActor> ActingActor = nullptr;
 	
 	// The object which triggered this action.
-	UPROPERTY(BlueprintReadOnly, Transient, Category = "Simple Action")
+	UPROPERTY(BlueprintReadOnly, Transient,Category = "Simple Action")
 	TWeakObjectPtr<UObject> ActionInstigator = nullptr;
+
+	// The amount of time before the Action Starts.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simple Action")
+	float StartDelay;
+
+	// The amount of time the action will be forced to last.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simple Action")
+	float DurationOverride;
 
 	// Called when the action is started.
 	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
 	FOnActionStartedSignature OnActionStarted;
+
+	// Called when the action in Interrupted.
+	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
+	FOnActionCancelSignature OnActionCancel;
 	
 	// Called when the action is Ended.
 	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
 	FOnActionEndedSignature OnActionEnded;
+
+	// Called when the action is Ended as successful.
+	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
+	FOnActionCompleteSignature OnActionComplete;
+
+	// Called when the action has Failed to start.
+	UPROPERTY(BlueprintAssignable, Category = "Simple Action")
+	FOnActionFailedSignature OnActionFailed;
+
+	// Wrapper delegates used for binding to Multicast Delegates via blueprint exposed parameters
+	// Called when the action is Started
+	FOnActionStartedDelegate OnActionStartedDelegate;
+
+	// Called when the action is Interrupted.
+	FOnActionCancelDelegate OnActionCancelDelegate;
+
+	// Called when the action is Ended.
+	FOnActionEndedDelegate OnActionEndedDelegate;
+
+	// Called when the action is Ended as Successful.
+	FOnActionCompleteDelegate OnActionCompleteDelegate;
+
+	// Called when the action has failed to start.
+	FOnActionFailedDelegate OnActionFailedDelegate;
 
 #if WITH_EDITORONLY_DATA
 protected:
@@ -90,6 +150,10 @@ public:
 	// This enables the object to use Latent Events.
 	virtual UWorld* GetWorld() const override;
 
+	// Gets the unique generated ID for this Simple Action
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Simple Action", meta = (ReturnDisplayName = "UID"))
+	virtual FString GetActionUID();
+	
 	// UObject interface
 	/**
 	 * Called after the C++ constructor and after the properties have been initialized, including those loaded from config.
@@ -117,6 +181,10 @@ public:
 	// Call to start the action.
 	UFUNCTION(BlueprintCallable, Category = "Simple Action", meta = (DefaultToSelf = "NewInstigator"))
 	void StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewActionActor, UPARAM(DisplayName = "Instigator") AActor* NewInstigator);
+
+	// Call to start the action with given functions to bind to related delegate broadcasts
+	UFUNCTION(BlueprintCallable, Category = "Simple Action", meta = (DefaultToSelf = "NewInstigator"))
+	void StartAction_Bound(UPARAM(DisplayName = "ActionActor") AActor* NewActionActor, UPARAM(DisplayName = "Instigator") AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionCancelDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed);
 
 	// Call to end the action with a status of successful.
 	UFUNCTION(BlueprintCallable, Category = "Simple Action", meta = (keywords = "complete, end, stop"))

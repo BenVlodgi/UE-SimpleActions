@@ -20,8 +20,13 @@ struct SIMPLEACTIONS_API FSimpleActionList
 	
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Instanced, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, meta = (ShowOnlyInnerProperties))
 	TArray<TObjectPtr<USimpleAction>> Actions;
+
+	FSimpleActionList() {}
+	FSimpleActionList(TArray<USimpleAction*> Actions) {
+		this->Actions = Actions;
+	}
 
 };
 

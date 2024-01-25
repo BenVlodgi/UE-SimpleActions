@@ -20,8 +20,13 @@ struct SIMPLEACTIONS_API FSimpleActionSingle
 	
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Instanced, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, meta = (ShowOnlyInnerProperties))
 	TObjectPtr<USimpleAction> Action;
+
+	FSimpleActionSingle() : FSimpleActionSingle(nullptr){}
+	FSimpleActionSingle(USimpleAction* Action) {
+		this->Action = Action;
+	}
 
 };
 

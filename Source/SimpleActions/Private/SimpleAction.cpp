@@ -43,6 +43,17 @@ UWorld* USimpleAction::GetWorld() const
     return nullptr;
 }
 
+FString USimpleAction::GetActionUID()
+{
+
+    if(ActionUID.IsEmpty())
+    {
+	    ActionUID = TEXT("" + FGuid::NewGuid().ToString());
+    }
+	return ActionUID;
+
+}
+
 #if WITH_EDITOR
 void USimpleAction::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -86,28 +97,31 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(USimpleAction::StartAction);
 
+    bool bFailed = false;
     UWorld* World = GetWorld();
     if (!World)
     {
         // Only run in valid worlds.
         UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' world not valid."), *GetName());
-		return;
+		bFailed = true;
     }
 
-    if (!bAllowInEditorPreview && World->IsPreviewWorld())
+    if (!bFailed && !bAllowInEditorPreview && World->IsPreviewWorld())
     {
 		// This Action isn't allowed to run in editor worlds.
 		UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' not allowed in Editor Preview World: %s."), *GetName(), LexToString(GetWorld()->WorldType));
-		return;
+        bFailed = true;
     }
-    if (!bAllowInLevelEditor && World->WorldType == EWorldType::Type::Editor)
+    if (!bFailed && !bAllowInLevelEditor && World->WorldType == EWorldType::Type::Editor)
     {
         // This Action isn't allowed to run in editor worlds.
         UE_LOG(LogSimpleAction, Warning, TEXT("StartAction: Failed. Action '%s' not allowed in Editor World: %s."), *GetName(), LexToString(GetWorld()->WorldType));
-        return;
+        bFailed = true;
     }
 
-    
+    if(bFailed) {
+	    OnActionFailed.Broadcast(this);
+    }
 
     if (bActive)
     {
@@ -135,17 +149,53 @@ void USimpleAction::StartAction(UPARAM(DisplayName = "ActionActor") AActor* NewA
     }
 
     UE_LOG(LogSimpleAction, Verbose, TEXT("StartAction: Starting. Action '%s'."), *GetName());
-    ActionStart();
+
     OnActionStarted.Broadcast(this);
+
+    if(DurationOverride > 0.f)
+    {
+	    const FTimerDelegate DurationOverrideDelegate = FTimerDelegate::CreateUObject(this, &USimpleAction::FinishAction, true);
+        GetWorld()->GetTimerManager().SetTimer(Timer_DurationOverride, DurationOverrideDelegate, DurationOverride + StartDelay, false);
+    }
+
+    if(StartDelay <= 0)
+    {
+		ActionStart(); 
+    } else {
+        const FTimerDelegate StartDelayDelegate = FTimerDelegate::CreateUObject(this, &USimpleAction::ActionStart);
+        GetWorld()->GetTimerManager().SetTimer(Timer_StartDelay, StartDelayDelegate, StartDelay, false);
+    }
+}
+
+void USimpleAction::StartAction_Bound(AActor* NewActionActor, AActor* NewInstigator, FOnActionStartedDelegate Started, FOnActionCancelDelegate Interrupted, FOnActionEndedDelegate Ended, FOnActionCompleteDelegate Complete, FOnActionFailedDelegate Failed) {
+    
+    OnActionStarted.AddUnique(Started);
+    OnActionCancel.AddUnique(Interrupted);
+    OnActionEnded.AddUnique(Ended);
+    OnActionComplete.AddUnique(Complete);
+    OnActionFailed.AddUnique(Failed);
+
+    StartAction(NewActionActor, NewInstigator);
 }
 
 void USimpleAction::FinishAction(bool bSuccess)
 {
+
+    // Only prevents the EndAction if there exists a DurationOverride timer active.
+    if(DurationOverride > 0.f) {
+        const FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+	    if (TimerManager.GetTimerRemaining(Timer_DurationOverride) > 0.f) {
+		    return;
+	    }
+    }
+
     EndAction(bSuccess);
 }
 
 void USimpleAction::CancelAction()
 {
+
+    OnActionCancel.Broadcast(this);
     EndAction(false);
 }
 
@@ -160,20 +210,43 @@ void USimpleAction::EndAction(bool bSuccess)
         return;
     }
 
+    // Kill all timers if the action is ending
+    if (StartDelay > 0.f) {
+        GetWorld()->GetTimerManager().ClearTimer(Timer_StartDelay);
+    }
+
+    if (DurationOverride > 0.f) {
+        GetWorld()->GetTimerManager().ClearTimer(Timer_DurationOverride);
+    }
+
     bActive = false;
 
     SetTickEnabled(false);
     UE_LOG(LogSimpleAction, Verbose, TEXT("EndAction: Stopping. Action '%s'. Success: %s."), *GetName(), bSuccess ? TEXT("True") : TEXT("False"));
 
-    ActionStop(bSuccess);
-    OnActionEnded.Broadcast(this, bSuccess);
+    if(bStopWhenActiveStarted)
+    {
+		ActionStop(bSuccess);
+    }
 
-    // These are left set until now incase the OnActionEnded broadcast wanted to have access to them.
-    ActingActor = nullptr;
-    ActionInstigator = nullptr;
+    if(bSuccess)
+    {
+	    OnActionComplete.Broadcast(this);
+    }
+	else
+    {
+		OnActionFailed.Broadcast(this);
+	}
+
+    OnActionEnded.Broadcast(this, bSuccess);
 
     // Final cleanup
     ActionReset();
+
+    // These are left set until now in case the OnActionEnded Broadcast or ActionReset wanted to have access to them.
+    ActingActor = nullptr;
+    ActionInstigator = nullptr;
+
 }
 
 void USimpleAction::SetTickEnabled(bool bTickEnabled)
